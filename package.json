@@ -1,0 +1,9 @@
+{
+  "name": "sniper-arena-online",
+  "version": "1.0.0",
+  "private": true,
+  "description": "3D online first-person sniper arena game",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "^4.21.2", "socket.io": "^4.8.1" }
+}
