@@ -38,7 +38,7 @@ function moveWithCollision(dx,dz){
   const nz=THREE.MathUtils.clamp(camera.position.z+dz,-43,43);
   if(!collidesAt(camera.position.x,nz)) camera.position.z=nz;
 }
-const players=new Map(); let myId=null,serverSpawn=null,yaw=0,pitch=0,started=false,aiming=false,ammo=5,reloading=false,shotPending=false,kills=0,deaths=0,hp=100,lastMove=0,meleeUntil=0;
+const players=new Map(); let myId=null,serverSpawn=null,yaw=0,pitch=0,started=false,aiming=false,sensitivity=Number(localStorage.getItem("sniperSensitivity")||"4")*.00055,ammo=5,reloading=false,shotPending=false,kills=0,deaths=0,hp=100,lastMove=0,meleeUntil=0;
 const keys={}; const clock=new THREE.Clock();
 const gun=new THREE.Group(); camera.add(gun); scene.add(camera);
 const dark=mat(0x17232b,.38,.55), steel=mat(0x52636c,.3,.7);
@@ -80,9 +80,17 @@ function showQuiz(){document.getElementById("menu").classList.add("hidden");docu
 document.getElementById("play").onclick=showQuiz;
 document.getElementById("quiz-back").onclick=()=>{document.getElementById("quiz").classList.add("hidden");document.getElementById("menu").classList.remove("hidden")};
 document.addEventListener("pointerlockchange",()=>{});
-document.addEventListener("mousemove",e=>{if(!started||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022;pitch-=e.movementY*.0022;pitch=Math.max(-1.25,Math.min(1.25,pitch))});
-document.addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="KeyF")melee();if(e.code==="KeyR")reload();if(e.code==="ShiftLeft"||e.code==="ShiftRight")beginSlide();if(e.code==="Escape"&&started)document.exitPointerLock?.()});
+document.addEventListener("mousemove",e=>{if(!started||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*sensitivity;pitch-=e.movementY*sensitivity;pitch=Math.max(-1.25,Math.min(1.25,pitch))});
+document.addEventListener("keydown",e=>{if(e.code==="Escape"&&started){e.preventDefault();const panel=document.getElementById("settings");if(panel.classList.contains("hidden")){panel.classList.remove("hidden");document.exitPointerLock?.();setAim(false)}else{panel.classList.add("hidden");if(matchMedia("(pointer:fine)").matches)renderer.domElement.requestPointerLock?.()}return;}if(!document.getElementById("settings").classList.contains("hidden"))return;keys[e.code]=true;if(e.code==="KeyF")melee();if(e.code==="KeyR")reload();if(e.code==="ShiftLeft"||e.code==="ShiftRight")beginSlide()});
 document.addEventListener("keyup",e=>keys[e.code]=false);
+const sensitivityInput=document.getElementById("sensitivity");
+const sensitivityValue=document.getElementById("sensitivity-value");
+function applySensitivity(v){const n=Math.max(1,Math.min(10,Number(v)||4));sensitivityInput.value=n;sensitivityValue.textContent=n.toFixed(1);sensitivity=n*.00055;localStorage.setItem("sniperSensitivity",String(n))}
+applySensitivity(Number(localStorage.getItem("sniperSensitivity")||"4"));
+sensitivityInput.addEventListener("input",e=>applySensitivity(e.target.value));
+function closeSettings(){document.getElementById("settings").classList.add("hidden");if(started&&matchMedia("(pointer:fine)").matches)renderer.domElement.requestPointerLock?.()}
+document.getElementById("settings-close").addEventListener("click",closeSettings);
+document.getElementById("settings-resume").addEventListener("click",closeSettings);
 renderer.domElement.addEventListener("click",()=>{if(started&&!matchMedia("(pointer:coarse)").matches&&document.pointerLockElement!==renderer.domElement)renderer.domElement.requestPointerLock?.()});
 document.addEventListener("mousedown",e=>{if(!started)return;if(e.button===0)shoot();if(e.button===2)setAim(true)});
 document.addEventListener("mouseup",e=>{if(e.button===2)setAim(false)});

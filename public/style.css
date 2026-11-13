@@ -7,3 +7,18 @@
 button{transition:filter .14s ease,transform .14s ease,box-shadow .14s ease}
 button:hover{filter:brightness(1.08);box-shadow:0 7px 28px #36bce477}
 .pill,#hp,#hint{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+
+/* ESC settings panel */
+#settings{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(4,10,16,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#settings.hidden{display:none}
+.settings-card{width:min(430px,100%);padding:26px;border:1px solid rgba(110,210,245,.35);border-radius:18px;background:linear-gradient(145deg,rgba(22,39,53,.98),rgba(8,17,27,.98));box-shadow:0 24px 80px rgba(0,0,0,.55);color:#edf8ff}
+.settings-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
+.settings-head small{letter-spacing:3px;color:#70dfff;font-weight:800}
+.settings-head h2{font-size:27px;margin:7px 0 0}
+#settings-close{width:38px;height:38px;border:1px solid #456273;border-radius:10px;background:#1b3040;color:white;font-size:26px;cursor:pointer}
+.settings-card label{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:16px}
+.settings-card label strong{color:#73e2ff;font-size:20px;font-variant-numeric:tabular-nums}
+#sensitivity{width:100%;accent-color:#56d7ff;cursor:pointer}
+.sensitivity-scale{display:flex;justify-content:space-between;color:#91a9b8;font-size:12px;margin-top:7px}
+.settings-card p{color:#9fb3c0;font-size:13px;line-height:1.6;margin:20px 0}
+#settings-resume{width:100%;padding:13px;border:0;border-radius:10px;background:linear-gradient(90deg,#1686ad,#27b8d1);color:#fff;font-weight:800;cursor:pointer}

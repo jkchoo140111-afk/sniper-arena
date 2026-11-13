@@ -26,3 +26,4 @@ For another player to join, deploy the whole Node.js project to a host that supp
 - Improved renderer tone mapping and visual contrast.
 - Slowed the first-person F-key melee animation visually; the existing server-side melee rules and cooldown are unchanged.
 - This is still a development build. Test multiplayer movement and collision on the deployed host before treating it as production-ready.
+\n- Press Escape during a match to open settings; mouse sensitivity (1.0–10.0) is adjustable and saved in the browser. Press Escape again or Resume to return.\n
