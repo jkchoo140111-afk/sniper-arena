@@ -4,13 +4,14 @@ const socket=io();
 const root=document.getElementById("game");
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x91b5c8); scene.fog=new THREE.Fog(0x91b5c8,55,145);
 const camera=new THREE.PerspectiveCamera(76,innerWidth/innerHeight,.1,250); camera.position.set(0,1.7,8);
-const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.outputColorSpace=THREE.SRGBColorSpace; root.appendChild(renderer.domElement);
+const renderer=new THREE.WebGLRenderer({antialias:true, powerPreference:"high-performance"}); renderer.setPixelRatio(Math.min(devicePixelRatio,1.75)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.18; root.appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xd9efff,0x53606a,2.1));
 const sun=new THREE.DirectionalLight(0xffedcf,2.2); sun.position.set(-25,45,20); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); scene.add(sun);
 const mat=(c,r=.8,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const worldColliders=[];
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(120,120),mat(0x596b68)); ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
 const grid=new THREE.GridHelper(120,60,0x8da7a0,0x718780); grid.position.y=.015; scene.add(grid);
-function box(x,y,z,sx,sy,sz,color){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat(color));o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);return o}
+function box(x,y,z,sx,sy,sz,color){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat(color));o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);worldColliders.push({minX:x-sx/2,maxX:x+sx/2,minZ:z-sz/2,maxZ:z+sz/2,bottom:y-sy/2,top:y+sy/2});return o}
 function cylinder(x,y,z,r,h,color){const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,8),mat(color));o.position.set(x,y,z);o.castShadow=true;scene.add(o);return o}
 // Arena architecture: cover blocks, raised platforms, towers and sightline lanes.
 for(let i=-2;i<=2;i++){box(i*19,2,-27,10,4,5,0x596875);box(i*19,2,27,10,4,5,0x596875);box(-27,2,i*19,5,4,10,0x596875);box(27,2,i*19,5,4,10,0x596875)}
@@ -18,7 +19,25 @@ for(let i=0;i<18;i++){let x=(Math.random()-.5)*72,z=(Math.random()-.5)*72;if(Mat
 for(let i=0;i<4;i++){let x=(i%2?1:-1)*17,z=(i<2?-1:1)*17;box(x,3.5,z,7,7,7,0x354a59);box(x,7.2,z,8,.5,8,0x91a6ad);for(let k=-1;k<=1;k++)box(x+k*2,1.5,z+4,1,3,.5,0x9aafba)}
 // Decorative lights
 for(let i=-2;i<=2;i++){let pole=cylinder(i*16,3,-5,.12,6,0x263c4a);cylinder(i*16,6,-5,.35,.25,0x75dfff)}
-const floorColliders=[]; // visual cover; movement bounds keep player in arena.
+const floorColliders=[]; // Kept for compatibility with the existing project.
+function collidesAt(x,z){
+  const radius=sliding?.43:.48, feet=camera.position.y-1.7;
+  for(const c of worldColliders){
+    // Only collide with objects that intersect the player's vertical space.
+    if(c.top < feet+.15 || c.bottom > feet+1.95) continue;
+    const nx=Math.max(c.minX,Math.min(x,c.maxX));
+    const nz=Math.max(c.minZ,Math.min(z,c.maxZ));
+    const dx=x-nx,dz=z-nz;
+    if(dx*dx+dz*dz<radius*radius) return true;
+  }
+  return false;
+}
+function moveWithCollision(dx,dz){
+  const nx=THREE.MathUtils.clamp(camera.position.x+dx,-43,43);
+  if(!collidesAt(nx,camera.position.z)) camera.position.x=nx;
+  const nz=THREE.MathUtils.clamp(camera.position.z+dz,-43,43);
+  if(!collidesAt(camera.position.x,nz)) camera.position.z=nz;
+}
 const players=new Map(); let myId=null,serverSpawn=null,yaw=0,pitch=0,started=false,aiming=false,ammo=5,reloading=false,shotPending=false,kills=0,deaths=0,hp=100,lastMove=0,meleeUntil=0;
 const keys={}; const clock=new THREE.Clock();
 const gun=new THREE.Group(); camera.add(gun); scene.add(camera);
@@ -71,7 +90,7 @@ document.addEventListener("contextmenu",e=>e.preventDefault());
 function setAim(v){aiming=v;document.body.classList.toggle("aim",v);camera.fov=v?25:76;camera.updateProjectionMatrix();gun.visible=!v}
 function shoot(){if(!started||reloading||shotPending||ammo<=0||!socket.connected)return;shotPending=true;socket.emit("shoot",{},result=>{shotPending=false;if(!result||!result.ok){if(result?.reason==="empty")reload();return;}ammo=result.ammo;document.getElementById("ammo").innerHTML=ammo+' <small>/ 5</small>';gun.position.z=.08;setTimeout(()=>gun.position.z=0,70);if(ammo===0)reload()})}
 function reload(){if(reloading||ammo===5||!socket.connected)return;reloading=true;socket.emit("reload",result=>{if(!result?.ok){reloading=false;return;}document.getElementById("reload").classList.remove("hidden")})}
-function melee(){if(!started||Date.now()<meleeUntil)return;meleeUntil=Date.now()+700;socket.emit("melee");fist.visible=true;gun.visible=false;fist.rotation.x=-.9;fist.position.set(.34,-.25,-.35);let t=0;const anim=()=>{t+=.12;fist.rotation.x=-.9+Math.sin(t*Math.PI)*1.7;fist.position.x=.34+Math.sin(t*Math.PI)*.16;if(t<1){requestAnimationFrame(anim)}else{fist.visible=false;gun.visible=!aiming}};anim()}
+function melee(){if(!started||Date.now()<meleeUntil)return;meleeUntil=Date.now()+700;socket.emit("melee");fist.visible=true;gun.visible=false;fist.rotation.x=-.9;fist.position.set(.34,-.25,-.35);let t=0;const anim=()=>{t=Math.min(1,t+.045);const swing=Math.sin(t*Math.PI);fist.rotation.x=-.9+swing*1.7;fist.position.x=.34+swing*.16;fist.position.y=-.25-Math.sin(t*Math.PI*2)*.025;if(t<1){requestAnimationFrame(anim)}else{fist.visible=false;gun.visible=!aiming}};anim()}
 function moveMobile(vec){mobileMove=vec}
 let mobileMove={x:0,y:0};const stick=document.getElementById("stick"),nub=document.getElementById("nub");let stickId=null;
 stick.addEventListener("pointerdown",e=>{stickId=e.pointerId;stick.setPointerCapture(stickId);moveStick(e)});
@@ -85,8 +104,8 @@ document.getElementById("fire").onclick=shoot;document.getElementById("punch").o
 let vy=0,onGround=true,sliding=false,slideUntil=0,lastSlide=0,slideDir={x:0,z:-1};
 function beginSlide(){if(!started||sliding||Date.now()-lastSlide<1100)return;lastSlide=Date.now();sliding=true;slideUntil=Date.now()+560;slideDir={x:-Math.sin(yaw),z:-Math.cos(yaw)};}
 function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.04);const smooth=1-Math.exp(-dt*15);for(const remote of players.values()){remote.mesh.position.lerp(new THREE.Vector3(remote.target.x,remote.target.y,remote.target.z),smooth);const da=Math.atan2(Math.sin(remote.targetYaw-remote.mesh.rotation.y),Math.cos(remote.targetYaw-remote.mesh.rotation.y));remote.mesh.rotation.y+=da*smooth;}if(started){camera.rotation.order="YXZ";camera.rotation.y=yaw;camera.rotation.x=pitch;
-const forward=(keys.KeyW?1:0)-(keys.KeyS?1:0)-mobileMove.y,side=(keys.KeyD?1:0)-(keys.KeyA?1:0)+mobileMove.x;const speed=sliding?0:6;const fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);camera.position.x+=(fx*forward+rx*side)*speed*dt;camera.position.z+=(fz*forward+rz*side)*speed*dt;
-if(sliding){camera.position.x+=slideDir.x*13*dt;camera.position.z+=slideDir.z*13*dt;if(Date.now()>=slideUntil)sliding=false}
+const forward=(keys.KeyW?1:0)-(keys.KeyS?1:0)-mobileMove.y,side=(keys.KeyD?1:0)-(keys.KeyA?1:0)+mobileMove.x;const speed=sliding?0:6;const fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);moveWithCollision((fx*forward+rx*side)*speed*dt,(fz*forward+rz*side)*speed*dt);
+if(sliding){moveWithCollision(slideDir.x*13*dt,slideDir.z*13*dt);if(Date.now()>=slideUntil)sliding=false}
 const targetY=sliding?1.05:1.7;camera.position.y+=(targetY-camera.position.y)*Math.min(1,dt*18);camera.position.x=THREE.MathUtils.clamp(camera.position.x,-43,43);camera.position.z=THREE.MathUtils.clamp(camera.position.z,-43,43);
 if(keys.Space&&onGround){vy=5.5;onGround=false}vy-=15*dt;camera.position.y+=vy*dt;if(camera.position.y<targetY){camera.position.y=targetY;vy=0;onGround=true}
 if(Date.now()-lastMove>50){lastMove=Date.now();socket.emit("move",{x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw,pitch})}
